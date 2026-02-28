@@ -8,13 +8,13 @@ The only PowerShell script you need to manage registry on Windows devices using 
 
 ## Features
 
-- Runs as **SYSTEM** by design - manages both user and machine registry from one script, works in environments with strict **AppLocker** or **WDAC** policies, and avoids **Constrained Language Mode** restrictions
+- Runs as **SYSTEM** by design - manages both user and machine registry from one script without CLM issues
 - Supports **HKCU** (all user profiles) and **HKLM**
 - Works with **Microsoft Entra ID** and traditional AD joined devices
 - All registry types: String, DWord, QWord, Binary, ExpandString, MultiString
 - Three actions: **Set**, **Delete**, **DeleteKey**
 - **Dual logging** - Output to Intune portal and local log file
-- **Version stamp** - Writes version and last-run timestamp to registry for fleet-wide tracking
+- **Version stamp** - Writes script version and last-run info to registry for easy monitoring
 
 ## Usage
 
@@ -139,11 +139,11 @@ For apps that store settings in the 32-bit registry view (e.g., 32-bit Office), 
 
 | Version | Changes |
 |---------|---------|
-| 3.6 | Added `[CmdletBinding()]` to `Set-RegistryValue` so `-ErrorAction Stop` propagates correctly. Code cleanup: removed dead variables, no-op switch cases, unused properties, simplified guard clauses. |
-| 3.5 | Version stamp to registry (`HKLM:\SOFTWARE\Intune-Registry-Management\<name>`) for fleet tracking. Replaced array concatenation with `List[PSCustomObject]` for performance. |
-| 3.4 | Case-insensitive binary hex comparison. Date-stamped log rotation keeping 3 recent files. Write-Warning fallback on logging failures. |
+| 3.6 | Fixed `-ErrorAction Stop` not propagating into `Set-RegistryValue`. General code cleanup. |
+| 3.5 | Version stamp written to registry. Performance fix for large config sets. |
+| 3.4 | Fixed binary comparison being case-sensitive. Log rotation now keeps 3 dated backups. Logging errors show a warning instead of failing silently. |
 | 3.3 | Added local log file for complete audit trail. Dual output to Intune portal and log file. |
-| 3.2 | Removed HKCU fallback when no users logged on. Script now skips HKCU gracefully and continues with HKLM. |
+| 3.2 | Removed broken HKCU fallback. Script now skips HKCU when no users are logged on. |
 | 3.1 | Added Set, Delete, and DeleteKey actions. Clean multi-line formatting. |
 
 ## Logging

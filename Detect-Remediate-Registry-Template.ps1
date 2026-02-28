@@ -2,9 +2,9 @@
 .SYNOPSIS
     Intune Remediation - Generic Registry Management Template
 .DESCRIPTION
-    Self-contained script for detecting and remediating registry settings.
+    Detects and remediates registry settings via Intune Remediations.
     Runs as SYSTEM and can modify both machine and per-user registry settings.
-    Supports multiple configuration groups organized by scope (User/Machine).
+    Handles per-user (HKCU) and machine-wide (HKLM) registry settings.
     Supports both traditional AD (S-1-5-21-*) and Azure AD/Entra ID (S-1-12-1-*) joined devices.
     Supports setting, deleting values, and deleting entire registry keys.
     
@@ -20,18 +20,14 @@
     Version: 3.6
     
     Version History:
-    3.6 - Added [CmdletBinding()] to Set-RegistryValue so -ErrorAction Stop propagates correctly.
-          Code cleanup: removed dead variables, no-op switch cases, unused properties, simplified guard clauses.
-    3.5 - Version stamp written to HKLM:\SOFTWARE\Intune-Registry-Management\<name> for fleet tracking.
-          Replaced array concatenation ($results +=) with List[PSCustomObject] for O(1) performance.
-    3.4 - Case-insensitive binary hex comparison to avoid false non-compliance.
-          Date-stamped log rotation keeping 3 most recent old logs.
-          Write-Log now emits Write-Warning on logging failures instead of silent catch.
+    3.6 - Fixed -ErrorAction Stop not propagating into Set-RegistryValue. General code cleanup.
+    3.5 - Version stamp written to registry. Performance fix for large config sets.
+    3.4 - Fixed binary comparison being case-sensitive. Log rotation now keeps 3 dated backups.
+          Logging errors now show a warning instead of failing silently.
     3.3 - Added Write-Log function for dual output (Intune portal + local log file).
           Log location: $env:ProgramData\Microsoft\IntuneManagementExtension\Logs\
           Configurable log file name ($LogFileName) and size-based rotation ($MaxLogSizeMB).
-    3.2 - Removed useless HKCU fallback when no users logged on. Script now skips
-          HKCU configurations gracefully and continues with HKLM processing.
+    3.2 - Removed broken HKCU fallback. Script now skips HKCU when no users are logged on.
     3.1 - Added Set, Delete, and DeleteKey actions. Clean multi-line formatting.
     
     Supported registry types: String, ExpandString, DWord, QWord, Binary, MultiString

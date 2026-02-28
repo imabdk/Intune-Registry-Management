@@ -1,2 +1,6 @@
 IMPROVEMENTS.md
 Test-RegistryManagement.ps1
+Detect-Registry-Template.ps1
+Remediate-Registry-Template.ps1
+Detect-Registry-Outlook-Fonts.ps1
+Remediate-Registry-Outlook-Fonts.ps1
