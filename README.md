@@ -130,6 +130,10 @@ $MachineConfigs = @(
 )
 ```
 
+## 32-bit applications
+
+For apps that store settings in the 32-bit registry view (e.g., 32-bit Office), create a separate Intune Remediation and uncheck **"Run this script in 64-bit PowerShell"** in the remediation properties. Windows automatically redirects `SOFTWARE\` to `SOFTWARE\WOW6432Node\` - no path changes needed in the script. Keep 32-bit and 64-bit settings in separate scripts.
+
 ## Version History
 
 | Version | Changes |

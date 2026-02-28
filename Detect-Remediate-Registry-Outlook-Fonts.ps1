@@ -17,9 +17,12 @@
 .NOTES
     Author: Martin Bengtsson
     Blog: https://www.imab.dk
-    Version: 3.3
+    Version: 3.4
     
     Version History:
+    3.4 - Case-insensitive binary hex comparison to avoid false non-compliance.
+          Date-stamped log rotation keeping 3 most recent old logs.
+          Write-Log now emits Write-Warning on logging failures instead of silent catch.
     3.3 - Added Write-Log function for dual output (Intune portal + local log file).
           Log location: $env:ProgramData\Microsoft\IntuneManagementExtension\Logs\
           Configurable log file name ($LogFileName) and size-based rotation ($MaxLogSizeMB).
@@ -252,11 +255,19 @@ function Write-Log {
     
     try {
         if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length / 1MB) -ge $MaxLogSizeMB) {
-            Move-Item -Path $LogFile -Destination "$LogFile.old" -Force -ErrorAction SilentlyContinue
+            $rotatedName = "$LogFile.$(Get-Date -Format 'yyyyMMdd-HHmmss').old"
+            Move-Item -Path $LogFile -Destination $rotatedName -Force -ErrorAction SilentlyContinue
+            # Keep only the 3 most recent rotated logs
+            Get-ChildItem -Path "$LogFile.*.old" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -Skip 3 |
+                Remove-Item -Force -ErrorAction SilentlyContinue
         }
-        Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$ScriptMode] $Message" -ErrorAction SilentlyContinue
+        Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$ScriptMode] $Message" -ErrorAction Stop
     }
-    catch { }
+    catch {
+        Write-Warning "Failed to write to log file '$LogFile': $($_.Exception.Message)"
+    }
 }
 
 function Get-RegistryValue {
@@ -275,9 +286,9 @@ function Get-RegistryValue {
         
         $value = Get-ItemPropertyValue -Path $Path -Name $Name -ErrorAction Stop
         
-        # Convert binary to hex string for comparison
+        # Convert binary to lowercase hex string for case-insensitive comparison
         if ($Type -eq "Binary") {
-            return ($value | ForEach-Object { '{0:x2}' -f $_ }) -join ','
+            return (($value | ForEach-Object { '{0:x2}' -f $_ }) -join ',').ToLower()
         }
         
         # Convert MultiString array to comparable format
@@ -353,6 +364,10 @@ function Compare-RegistryValue {
     if ($null -eq $CurrentValue) { return $false }
     
     switch ($Type) {
+        "Binary" {
+            # Case-insensitive comparison for hex strings
+            return ([string]$CurrentValue).ToLower() -eq ([string]$ExpectedValue).ToLower()
+        }
         "MultiString" {
             $expected = if ($ExpectedValue -is [array]) { $ExpectedValue -join "|" } else { $ExpectedValue }
             return ($CurrentValue -eq $expected)
