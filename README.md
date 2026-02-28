@@ -1,6 +1,6 @@
 # Intune Registry Management
 
-**Version 3.3** | Author: [Martin Bengtsson](https://www.imab.dk)
+**Version 3.4** | Author: [Martin Bengtsson](https://www.imab.dk)
 
 Blog post: [The only PowerShell script you need to manage registry on Windows devices using Microsoft Intune](https://www.imab.dk/the-only-powershell-script-you-need-to-manage-registry-on-windows-devices-using-microsoft-intune/)
 
@@ -138,6 +138,7 @@ For apps that store settings in the 32-bit registry view (e.g., 32-bit Office), 
 
 | Version | Changes |
 |---------|---------|
+| 3.4 | Case-insensitive binary hex comparison. Date-stamped log rotation keeping 3 recent files. Write-Warning fallback on logging failures. |
 | 3.3 | Added local log file for complete audit trail. Dual output to Intune portal and log file. |
 | 3.2 | Removed HKCU fallback when no users logged on. Script now skips HKCU gracefully and continues with HKLM. |
 | 3.1 | Added Set, Delete, and DeleteKey actions. Clean multi-line formatting. |
