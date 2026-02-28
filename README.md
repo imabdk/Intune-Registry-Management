@@ -1,6 +1,6 @@
 # Intune Registry Management
 
-**Version 3.4** | Author: [Martin Bengtsson](https://www.imab.dk)
+**Version 3.6** | Author: [Martin Bengtsson](https://www.imab.dk)
 
 Blog post: [The only PowerShell script you need to manage registry on Windows devices using Microsoft Intune](https://www.imab.dk/the-only-powershell-script-you-need-to-manage-registry-on-windows-devices-using-microsoft-intune/)
 
@@ -14,6 +14,7 @@ The only PowerShell script you need to manage registry on Windows devices using 
 - All registry types: String, DWord, QWord, Binary, ExpandString, MultiString
 - Three actions: **Set**, **Delete**, **DeleteKey**
 - **Dual logging** - Output to Intune portal and local log file
+- **Version stamp** - Writes version and last-run timestamp to registry for fleet-wide tracking
 
 ## Usage
 
@@ -138,6 +139,8 @@ For apps that store settings in the 32-bit registry view (e.g., 32-bit Office), 
 
 | Version | Changes |
 |---------|---------|
+| 3.6 | Added `[CmdletBinding()]` to `Set-RegistryValue` so `-ErrorAction Stop` propagates correctly. Code cleanup: removed dead variables, no-op switch cases, unused properties, simplified guard clauses. |
+| 3.5 | Version stamp to registry (`HKLM:\SOFTWARE\Intune-Registry-Management\<name>`) for fleet tracking. Replaced array concatenation with `List[PSCustomObject]` for performance. |
 | 3.4 | Case-insensitive binary hex comparison. Date-stamped log rotation keeping 3 recent files. Write-Warning fallback on logging failures. |
 | 3.3 | Added local log file for complete audit trail. Dual output to Intune portal and log file. |
 | 3.2 | Removed HKCU fallback when no users logged on. Script now skips HKCU gracefully and continues with HKLM. |

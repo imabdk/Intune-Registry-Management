@@ -17,9 +17,13 @@
 .NOTES
     Author: Martin Bengtsson
     Blog: https://www.imab.dk
-    Version: 3.4
+    Version: 3.6
     
     Version History:
+    3.6 - Added [CmdletBinding()] to Set-RegistryValue so -ErrorAction Stop propagates correctly.
+          Code cleanup: removed dead variables, no-op switch cases, unused properties, simplified guard clauses.
+    3.5 - Version stamp written to HKLM:\SOFTWARE\Intune-Registry-Management\<name> for fleet tracking.
+          Replaced array concatenation ($results +=) with List[PSCustomObject] for O(1) performance.
     3.4 - Case-insensitive binary hex comparison to avoid false non-compliance.
           Date-stamped log rotation keeping 3 most recent old logs.
           Write-Log now emits Write-Warning on logging failures instead of silent catch.
@@ -232,6 +236,9 @@ $runRemediation = $true  # $false = detection only, $true = detection + remediat
 $LogFileName = "Intune-Registry-Management-OutlookFonts"  # Change per script (e.g., "Intune-Registry-Management-OutlookFonts")
 $MaxLogSizeMB = 4
 
+# Version stamp - written to HKLM:\SOFTWARE\Intune-Registry-Management\<LogFileName>
+$ScriptVersion = "3.6"
+
 #endregion ==================== END CONFIGURATION ========================================
 
 
@@ -308,6 +315,7 @@ function Set-RegistryValue {
     .SYNOPSIS
         Sets a registry value with the specified type.
     #>
+    [CmdletBinding()]
     param (
         [string]$Path,
         [string]$Name,
@@ -338,12 +346,6 @@ function Set-RegistryValue {
             if ($Value -is [string]) {
                 $regValue = $Value -split '\|'
             }
-        }
-        "ExpandString" {
-            $regType = "ExpandString"
-        }
-        "String" {
-            $regType = "String"
         }
     }
     
@@ -395,8 +397,6 @@ function Test-RegistryCompliance {
     
     $result = [PSCustomObject]@{
         Name               = $Setting.Name
-        Path               = $Path
-        Action             = $action
         NeedsRemediation   = $false
         RemediationSuccess = $null
         Message            = ""
@@ -487,7 +487,6 @@ function Test-RegistryCompliance {
             
             if (-not $isCompliant) {
                 $result.NeedsRemediation = $true
-                $displayCurrent = if ($null -eq $currentValue) { "not set" } else { "different" }
                 
                 if ($Remediate) {
                     try {
@@ -510,7 +509,7 @@ function Test-RegistryCompliance {
                     }
                 }
                 else {
-                    $result.Message = "[NON-COMPLIANT] $($Setting.Name) ($($Setting.Type)) - $displayCurrent"
+                    $result.Message = "[NON-COMPLIANT] $($Setting.Name) ($($Setting.Type))"
                 }
             }
             else {
@@ -528,7 +527,7 @@ function Test-RegistryCompliance {
 
 Write-Log "[START] Registry Management - $(if ($runRemediation) { 'REMEDIATION' } else { 'DETECTION' })"
 
-$results = @()
+$results = [System.Collections.Generic.List[PSCustomObject]]::new()
 
 # Cache user SIDs once if any User configs exist
 $cachedUserSIDs = $null
@@ -537,30 +536,24 @@ if ($UserConfigs.Count -gt 0) {
         Where-Object { $_ -match '^S-1-(5-21|12-1)-\d+-\d+-\d+-\d+$' }
     
     if (-not $cachedUserSIDs) {
-        Write-Log "[WARNING] No user profiles currently loaded in registry"
-        Write-Log "[WARNING] HKCU configurations will be skipped"
+        Write-Log "[SKIPPED] No user profiles loaded in registry - HKCU settings will be skipped"
     }
 }
 
 # Process USER configurations
-if ($UserConfigs.Count -gt 0) {
-    if (-not $cachedUserSIDs) {
-        Write-Log "[SKIPPED] No users logged on - cannot process HKCU settings"
-    }
-    else {
-        $configNum = 0
-        foreach ($config in $UserConfigs) {
-            $configNum++
-            Write-Log "[USER] Config $configNum of $($UserConfigs.Count): $($config.Name) - $($config.Description)"
-            Write-Log "[PATH] HKU:\<SID>\$($config.BasePath)"
-            
-            foreach ($sid in $cachedUserSIDs) {
-                $regPath = "Registry::HKEY_USERS\$sid\$($config.BasePath)"
-                foreach ($setting in $config.Settings) {
-                    $result = Test-RegistryCompliance -Path $regPath -Setting $setting -Remediate $runRemediation
-                    $results += $result
-                    Write-Log $result.Message
-                }
+if ($UserConfigs.Count -gt 0 -and $cachedUserSIDs) {
+    $configNum = 0
+    foreach ($config in $UserConfigs) {
+        $configNum++
+        Write-Log "[USER] Config $configNum of $($UserConfigs.Count): $($config.Name) - $($config.Description)"
+        Write-Log "[PATH] HKU:\<SID>\$($config.BasePath)"
+        
+        foreach ($sid in $cachedUserSIDs) {
+            $regPath = "Registry::HKEY_USERS\$sid\$($config.BasePath)"
+            foreach ($setting in $config.Settings) {
+                $result = Test-RegistryCompliance -Path $regPath -Setting $setting -Remediate $runRemediation
+                $results.Add($result)
+                Write-Log $result.Message
             }
         }
     }
@@ -578,10 +571,28 @@ if ($MachineConfigs.Count -gt 0) {
         
         foreach ($setting in $config.Settings) {
             $result = Test-RegistryCompliance -Path $regPath -Setting $setting -Remediate $runRemediation
-            $results += $result
+            $results.Add($result)
             Write-Log $result.Message
         }
     }
+}
+
+#endregion
+
+#region Version Stamp
+
+try {
+    $stampName = $LogFileName -replace '^Intune-Registry-Management-?', ''
+    if (-not $stampName) { $stampName = $LogFileName }
+    $stampPath = "HKLM:\SOFTWARE\Intune-Registry-Management\$stampName"
+    if (-not (Test-Path $stampPath)) { New-Item -Path $stampPath -Force | Out-Null }
+    Set-ItemProperty -Path $stampPath -Name "ScriptVersion" -Value $ScriptVersion -Type String -Force
+    Set-ItemProperty -Path $stampPath -Name "LastRun" -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Type String -Force
+    Set-ItemProperty -Path $stampPath -Name "LastRunMode" -Value $ScriptMode -Type String -Force
+    Write-Log "[STAMP] Version $ScriptVersion ($ScriptMode) stamped to $stampPath"
+}
+catch {
+    Write-Log "[WARNING] Failed to write version stamp: $($_.Exception.Message)"
 }
 
 #endregion
@@ -628,5 +639,3 @@ Write-Log "[REGISTRYMGMT] COMPLIANT - All settings are correct"
 exit 0
 
 #endregion
-
-#endregion ==================== END SCRIPT ===============================================
