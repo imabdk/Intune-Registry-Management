@@ -584,8 +584,7 @@ try {
     if (-not (Test-Path $stampPath)) { New-Item -Path $stampPath -Force | Out-Null }
     Set-ItemProperty -Path $stampPath -Name "ScriptVersion" -Value $ScriptVersion -Type String -Force
     Set-ItemProperty -Path $stampPath -Name "LastRun" -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -Type String -Force
-    Set-ItemProperty -Path $stampPath -Name "LastRunMode" -Value $ScriptMode -Type String -Force
-    Write-Log "[STAMP] Version $ScriptVersion ($ScriptMode) stamped to $stampPath"
+    Write-Log "[STAMP] Version $ScriptVersion stamped to $stampPath"
 }
 catch {
     Write-Log "[WARNING] Failed to write version stamp: $($_.Exception.Message)"
